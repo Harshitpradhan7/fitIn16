@@ -39,6 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            // --- 1. Basic Spam / Double-Submit Prevention ---
+            const lastSubTime = localStorage.getItem('fitin16_last_submission');
+            if (lastSubTime && (Date.now() - parseInt(lastSubTime) < (5 * 60 * 1000))) {
+                alert("You're already on the list! Please check your email and WhatsApp.");
+                return;
+            }
+
             const submitBtn = form.querySelector('#submit-btn');
 
             // Add loading state
@@ -51,8 +58,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 const apiKey = import.meta.env?.SHEETDB_API_KEY;
                 const formDataObj = {};
                 new URLSearchParams(new FormData(form)).forEach((value, key) => {
-                    formDataObj[key] = value;
+                    let cleanedValue = value.trim();
+                    // --- 2. Google Sheet Formula Injection Protection ---
+                    // Prevent leading characters that trigger executable formulas in Google Sheets
+                    if (['=', '+', '-', '@'].includes(cleanedValue.charAt(0))) {
+                        cleanedValue = "'" + cleanedValue; // Prepends a quote to force it as string text
+                    }
+                    formDataObj[key] = cleanedValue;
                 });
+
+                // --- Form Validation ---
+                if (!formDataObj.name || formDataObj.name.length < 2) {
+                    throw new Error("Validation: Please enter a valid name.");
+                }
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(formDataObj.email)) {
+                    throw new Error("Validation: Please enter a valid email address.");
+                }
+                const cleanPhone = formDataObj.whatsapp.replace(/[\s-]/g, '');
+                if (!/^\+?[0-9]{8,15}$/.test(cleanPhone)) {
+                    throw new Error("Validation: Please enter a valid WhatsApp number (8-15 digits), e.g., +1234567890.");
+                }
+
+                // --- 3. Profession Dropdown Tampering Check ---
+                const validProfessions = ['engineer', 'manager', 'consultant', 'finance', 'startup', 'other'];
+                if (!validProfessions.includes(formDataObj.profession)) {
+                    throw new Error("Validation: Invalid profession selected.");
+                }
+                // -----------------------
 
                 // Add date and time to match Google Sheet columns
                 const now = new Date();
@@ -88,13 +121,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Alert as requested in raw snippet
                 alert("Thanks! You're on the early access list.");
+
+                // Record timestamp in local storage to prevent duplicate spam
+                localStorage.setItem('fitin16_last_submission', Date.now().toString());
+
                 form.reset();
             } catch (error) {
                 console.error("Submission failed:", error);
                 submitBtn.innerHTML = originalText;
                 submitBtn.style.opacity = '1';
                 submitBtn.disabled = false;
-                alert("Something went wrong. Please try again.");
+
+                if (error.message.startsWith("Validation:")) {
+                    alert(error.message.replace("Validation: ", ""));
+                } else {
+                    alert("Something went wrong. Please try again.");
+                }
             }
         });
     }
