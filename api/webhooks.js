@@ -108,7 +108,7 @@ export default async function handler(req, res) {
       res.status(200).send('EVENT_RECEIVED');
     } else {
       // Return a '404 Not Found' if event is not from a WhatsApp API
-      res.sendStatus(404);
+      res.status(404).send('Not Found');
     }
     
   } else {
