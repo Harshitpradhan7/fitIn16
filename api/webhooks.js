@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+      const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -25,12 +25,19 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           messaging_product: "whatsapp",
           to: to,
+          type: "text",
           text: { body: text }
         })
       });
-      console.log(`Message successfully sent to ${to}`);
+      
+      const data = await response.json();
+      if (response.ok) {
+        console.log(`Message successfully sent to ${to}`);
+      } else {
+        console.error("Meta API Rejected the message. Reason:", JSON.stringify(data));
+      }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Network Error sending message:", error);
     }
   }
 
