@@ -115,16 +115,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`API Error ${response.status}: ${errText}`);
                 }
 
-                // Remove form, show success
+                // Remove form, show success message
                 form.classList.add('hidden');
                 successMessage.classList.remove('hidden');
-
-                // Alert as requested in raw snippet
-                alert("Thanks! You're on the early access list.");
 
                 // Record timestamp in local storage to prevent duplicate spam
                 localStorage.setItem('fitin16_last_submission', Date.now().toString());
 
+                // Redirect to WhatsApp Bot seamlessly
+                const waPhone = "15551751595";
+                const waText = encodeURIComponent("join");
+                window.location.href = `https://wa.me/${waPhone}?text=${waText}`;
+
+                // Reset form in background
                 form.reset();
             } catch (error) {
                 console.error("Submission failed:", error);
