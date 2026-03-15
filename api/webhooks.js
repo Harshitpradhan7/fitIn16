@@ -29,7 +29,7 @@ export default async function handler(req, res) {
           text: { body: text }
         })
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         console.log(`Message successfully sent to ${to}`);
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     } else {
       res.status(400).send('Bad Request');
     }
-    
+
   } else if (req.method === 'POST') {
     // Handle incoming webhook events here
     console.log('--- LIVE WHATSAPP MESSAGE RECEIVED ---');
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
 
     // Parse the message from Meta's payload structure
     const body = req.body;
-    
+
     if (body.object) {
       if (
         body.entry &&
@@ -122,40 +122,118 @@ export default async function handler(req, res) {
             }
           }
 
+          // --- Phase 2: Dynamic Challenge Dictionary ---
+          const CHALLENGES = [
+            "• 10 Chin Tucks\n• 15 Bodyweight Squats\n• Walk 10 minutes", // Day 1
+
+            "• 10 Wall Angels\n• 20 Bodyweight Squats\n• Walk 10 minutes", // Day 2
+
+            "• 12 Chin Tucks\n• 20 Squats\n• 30s Plank", // Day 3
+
+            "• 10 Pushups (or knee pushups)\n• 10 Cat-Cow Stretch\n• Walk 12 minutes", // Day 4
+
+            "• 12 Wall Angels\n• 25 Squats\n• 30s Plank", // Day 5
+
+            "• 15 Glute Bridges\n• 30 Squats\n• Walk 15 minutes", // Day 6
+
+            "• Recovery Day 🧘\n• 15-minute Stretching\n• Walk 10 minutes", // Day 7
+
+            "• 15 Chin Tucks\n• 30 Squats\n• Walk 15 minutes", // Day 8
+
+            "• 12 Pushups\n• 45s Plank\n• Walk 15 minutes", // Day 9
+
+            "• 35 Squats\n• Hip Flexor Stretch (1 min each side)\n• Walk 20 minutes", // Day 10
+
+            "• 15 Glute Bridges\n• 1-minute Plank\n• 15-minute Stretching", // Day 11
+
+            "• 15 Pushups\n• 40 Squats\n• Walk 20 minutes", // Day 12
+
+            "• 45 Squats\n• Hip Flexor Stretch (1 min each side)\n• Walk 20 minutes", // Day 13
+
+            "• Active Recovery 🧘\n• 20-minute Stretching\n• Light Walk 10 minutes", // Day 14
+
+            "• 50 Squats\n• 1-minute Plank\n• Walk 25 minutes 🎉", // Day 15
+          ];
+
+          const ACHIEVEMENTS = [
+            "🔥 Great start!\nToday you activated your leg muscles and improved blood circulation. Small movement breaks help reverse the damage caused by long sitting.",
+            "👏 Well done!\nToday's session helped open your shoulders and improve posture — something most desk workers struggle with.",
+            "💪 Nice work!\nYou strengthened your core today. A stronger core supports your spine and reduces back pain.",
+            "🔥 Excellent effort!\nPushups and mobility work helped activate your upper body and improve shoulder stability.",
+            "👏 Strong session!\nYour squats and plank improved lower body strength and core stability.",
+            "💪 Great job!\nToday's movement activated your glutes — an important muscle group that becomes weak from long sitting.",
+            "🧘 Recovery day complete!\nStretching improved flexibility and reduced muscle stiffness from desk work.",
+            "🔥 Back at it!\nToday's routine helped improve neck posture and activate your leg muscles.",
+            "👏 Well done!\nPushups and plank strengthened your chest, shoulders, and core.",
+            "💪 Solid work!\nSquats and mobility improved hip flexibility and boosted circulation.",
+            "🔥 Great consistency!\nYour plank and glute bridges strengthened your core and supported your lower back.",
+            "👏 Nice effort!\nPushups and squats helped activate major muscle groups and improve daily energy.",
+            "💪 Strong session!\nHip mobility work helps reverse tightness caused by long hours of sitting.",
+            "🧘 Active recovery complete!\nStretching improves mobility and reduces injury risk.",
+            "🎉 Final challenge done!\nYou improved strength, posture, and endurance over the past 15 days. Your body is already stronger!"
+          ];
+
           // Bot Routing logic here
           if (userMessage === "join") {
             const user = await getUserData(from);
             const name = user ? user.name.split(' ')[0] : 'there'; // Get first name
-            
+
             await sendMessage(
               from,
-              `Welcome to FitIn16, ${name}! 💪\n\nYour 30-day health challenge is ready.\n\nType START to begin Day 1.`
+              `Welcome to FitIn16, ${name}! 💪\n\nYour 30-day health challenge is ready.\n\nType START to begin.`
             );
           } else if (userMessage === "start") {
             const user = await getUserData(from);
             const currentStreak = user && user.streak ? parseInt(user.streak) : 0;
-            
-            await sendMessage(
-              from,
-              `Day ${currentStreak + 1} Challenge:\n\n• 20 squats\n• Walk 10 minutes\n• Drink 3L water\n\nReply DONE after completing.`
-            );
+
+            if (currentStreak >= CHALLENGES.length) {
+              await sendMessage(
+                from,
+                `Wow! You have officially completed the FitIn16 Challenge! 🎉\n\nYou're a legend. Take a break, and text me anytime if you want to restart.`
+              );
+            } else {
+              const todaysWorkout = CHALLENGES[currentStreak];
+              await sendMessage(
+                from,
+                `Day ${currentStreak + 1} Challenge:\n\n${todaysWorkout}\n\nReply DONE after completing.`
+              );
+            }
           } else if (userMessage === "done") {
             const user = await getUserData(from);
             const currentStreak = user && user.streak ? parseInt(user.streak) : 0;
-            const newStreak = currentStreak + 1;
-            
-            // Save their new score to Google Sheets!
-            await updateStreak(from, newStreak);
 
+            if (currentStreak >= ACHIEVEMENTS.length) {
+               await sendMessage(
+                 from,
+                 `You've already completed the entire 15 days! No more days to mark as done.`
+               );
+            } else {
+              const newStreak = currentStreak + 1;
+
+              // Save their new score to Google Sheets!
+              await updateStreak(from, newStreak);
+
+              const achievementMsg = ACHIEVEMENTS[currentStreak];
+
+              if (newStreak === ACHIEVEMENTS.length) {
+                // Final day completed
+                 await sendMessage(
+                  from,
+                  `${achievementMsg}\n\nYour final streak: ${newStreak} days 🔥\n\nYou are a true champion!`
+                );
+              } else {
+                // Normal day completed
+                await sendMessage(
+                  from,
+                  `${achievementMsg}\n\nYour streak: ${newStreak} days 🔥\n\nSee you tomorrow for Day ${newStreak + 1} of FitIn16.`
+                );
+              }
+            }
+          } else {
             await sendMessage(
               from,
-              `Great job! 🔥\n\nYour streak is now ${newStreak} days. I've updated your record in the database.\n\nSee you tomorrow!`
+              "I'm a simple bot right now! Send *START* to get today's challenge, or *DONE* when you finish it."
             );
-          } else {
-             await sendMessage(
-              from,
-               "I'm a simple bot right now! Send *START* to get today's challenge, or *DONE* when you finish it."
-             );
           }
         }
       }
@@ -164,7 +242,7 @@ export default async function handler(req, res) {
       // Return a '404 Not Found' if event is not from a WhatsApp API
       res.status(404).send('Not Found');
     }
-    
+
   } else {
     res.setHeader('Allow', ['GET', 'POST']);
     res.status(405).end(`Method ${req.method} Not Allowed`);
