@@ -93,22 +93,69 @@ export default async function handler(req, res) {
 
           console.log(`Received message: "${userMessage}" from: ${from}`);
 
+          // --- Phase 1: Database Integration (SheetDB) ---
+          const sheetDbUrl = 'https://sheetdb.io/api/v1/zndh0qndlbig6';
+
+          // Helper function to find user in Google Sheet by phone number
+          async function getUserData(phoneNumber) {
+            try {
+              // WhatsApp adds standard country codes (like '1' or '91'), we do a wildcard search just in case
+              const res = await fetch(`${sheetDbUrl}/search?whatsapp=*${phoneNumber.slice(-10)}*`);
+              const data = await res.json();
+              return data.length > 0 ? data[data.length - 1] : null; // Get most recent sign-up
+            } catch (error) {
+              console.error("Error fetching from SheetDB:", error);
+              return null;
+            }
+          }
+
+          // Helper function to update user streak in Google Sheet
+          async function updateStreak(phoneNumber, newStreak) {
+            try {
+              await fetch(`${sheetDbUrl}/whatsapp/*${phoneNumber.slice(-10)}*`, {
+                method: 'PATCH',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { streak: newStreak } })
+              });
+            } catch (error) {
+              console.error("Error updating SheetDB:", error);
+            }
+          }
+
           // Bot Routing logic here
           if (userMessage === "join") {
+            const user = await getUserData(from);
+            const name = user ? user.name.split(' ')[0] : 'there'; // Get first name
+            
             await sendMessage(
               from,
-              "Welcome to FitIn15 💪\n\nYour 30 day health challenge starts tomorrow.\n\nType START to begin."
+              `Welcome to FitIn16, ${name}! 💪\n\nYour 30-day health challenge is ready.\n\nType START to begin Day 1.`
             );
           } else if (userMessage === "start") {
+            const user = await getUserData(from);
+            const currentStreak = user && user.streak ? parseInt(user.streak) : 0;
+            
             await sendMessage(
               from,
-              "Day 1 Challenge:\n\n• 20 squats\n• walk 10 minutes\n• drink 3L water\n\nReply DONE after completing."
+              `Day ${currentStreak + 1} Challenge:\n\n• 20 squats\n• Walk 10 minutes\n• Drink 3L water\n\nReply DONE after completing.`
             );
           } else if (userMessage === "done") {
+            const user = await getUserData(from);
+            const currentStreak = user && user.streak ? parseInt(user.streak) : 0;
+            const newStreak = currentStreak + 1;
+            
+            // Save their new score to Google Sheets!
+            await updateStreak(from, newStreak);
+
             await sendMessage(
               from,
-              "Great job! 🔥\n\nYour streak is now 1 day."
+              `Great job! 🔥\n\nYour streak is now ${newStreak} days. I've updated your record in the database.\n\nSee you tomorrow!`
             );
+          } else {
+             await sendMessage(
+              from,
+               "I'm a simple bot right now! Send *START* to get today's challenge, or *DONE* when you finish it."
+             );
           }
         }
       }
