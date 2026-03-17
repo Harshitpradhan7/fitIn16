@@ -37,12 +37,23 @@ export default async function handler(req, res) {
       }
     };
 
-    // If we have videos to send, convert to an array if it's just a single string
+    // 1. ALWAYS send the text message first!
+    await sendToMeta({
+      messaging_product: "whatsapp",
+      to: to,
+      type: "text",
+      text: { body: text }
+    });
+
+    // 2. If there are videos, send them after the text
     if (mediaUrls) {
       const urls = Array.isArray(mediaUrls) ? mediaUrls : [mediaUrls];
       
       // Loop through all videos and send them one by one
       for (let i = 0; i < urls.length; i++) {
+        // Add a safety delay between large media files so Meta doesn't drop the second video
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         let payload = {
           messaging_product: "whatsapp",
           to: to,
@@ -50,21 +61,8 @@ export default async function handler(req, res) {
           video: { link: urls[i] }
         };
         
-        // Add the workout text as the caption to the VERY LAST video in the list
-        if (i === urls.length - 1) {
-          payload.video.caption = text;
-        }
-        
         await sendToMeta(payload);
       }
-    } else {
-      // If there are no videos, just send plain text
-      await sendToMeta({
-        messaging_product: "whatsapp",
-        to: to,
-        type: "text",
-        text: { body: text }
-      });
     }
   }
 
