@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       }
     };
 
-    // 1. ALWAYS send the text message first!
+    // 1. Send the main text challenge first
     await sendToMeta({
       messaging_product: "whatsapp",
       to: to,
@@ -45,24 +45,27 @@ export default async function handler(req, res) {
       text: { body: text }
     });
 
-    // 2. If there are videos, send them after the text
+    // 2. If there are videos, send them!
     if (mediaUrls) {
       const urls = Array.isArray(mediaUrls) ? mediaUrls : [mediaUrls];
       
-      // Loop through all videos and send them one by one
+      // Loop through all videos and send them one by one without forcing artificial delays
       for (let i = 0; i < urls.length; i++) {
-        // Add a safety delay between large media files so Meta doesn't drop the second video
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        let payload = {
+        await sendToMeta({
           messaging_product: "whatsapp",
           to: to,
           type: "video",
           video: { link: urls[i] }
-        };
-        
-        await sendToMeta(payload);
+        });
       }
+
+      // 3. Send the final end message after videos finish rendering
+      await sendToMeta({
+        messaging_product: "whatsapp",
+        to: to,
+        type: "text",
+        text: { body: "Reply *DONE* after completing your challenge! 🔥" }
+      });
     }
   }
 
@@ -247,7 +250,7 @@ export default async function handler(req, res) {
 
               await sendMessage(
                 from,
-                `Day ${currentStreak + 1} Challenge:\n\n${todaysWorkout}\n\nReply DONE after completing.`,
+                `Day ${currentStreak + 1} Challenge:\n\n${todaysWorkout}`,
                 VIDEOS[currentStreak]
               );
             }
