@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   console.log('------------------------');
 
   // Helper function to send WhatsApp messages back
-  async function sendMessage(to, text) {
+  async function sendMessage(to, text, mediaUrls = null) {
     const token = process.env.WHATSAPP_TOKEN;
     const phoneId = process.env.PHONE_NUMBER_ID;
 
@@ -15,29 +15,56 @@ export default async function handler(req, res) {
       return;
     }
 
-    try {
-      const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+    // Helper to fire a single Meta API request
+    const sendToMeta = async (payload) => {
+      try {
+        const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`Successfully sent message part to ${to}`);
+        } else {
+          console.error("Meta API Rejected the message:", JSON.stringify(data));
+        }
+      } catch (error) {
+        console.error("Network Error sending message:", error);
+      }
+    };
+
+    // If we have videos to send, convert to an array if it's just a single string
+    if (mediaUrls) {
+      const urls = Array.isArray(mediaUrls) ? mediaUrls : [mediaUrls];
+      
+      // Loop through all videos and send them one by one
+      for (let i = 0; i < urls.length; i++) {
+        let payload = {
           messaging_product: "whatsapp",
           to: to,
-          type: "text",
-          text: { body: text }
-        })
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        console.log(`Message successfully sent to ${to}`);
-      } else {
-        console.error("Meta API Rejected the message. Reason:", JSON.stringify(data));
+          type: "video",
+          video: { link: urls[i] }
+        };
+        
+        // Add the workout text as the caption to the VERY LAST video in the list
+        if (i === urls.length - 1) {
+          payload.video.caption = text;
+        }
+        
+        await sendToMeta(payload);
       }
-    } catch (error) {
-      console.error("Network Error sending message:", error);
+    } else {
+      // If there are no videos, just send plain text
+      await sendToMeta({
+        messaging_product: "whatsapp",
+        to: to,
+        type: "text",
+        text: { body: text }
+      });
     }
   }
 
@@ -193,9 +220,37 @@ export default async function handler(req, res) {
               );
             } else {
               const todaysWorkout = CHALLENGES[currentStreak];
+              
+              // An array representing each of the 15 days of videos. 
+              // If a day has multiple videos, just put them in a mini-array like Day 1 below!
+              const VIDEOS = [
+                // Day 1: Multiple real GitHub videos sent one after another!
+                [
+                  "https://github.com/user-attachments/assets/e71c289b-0892-4e2b-90da-63f161cb088b", 
+                  "https://github.com/user-attachments/assets/f6b5737d-77ed-43ca-abcb-54b924c706a0"
+                ],
+                // Day 2 (Placeholder single video)
+                ["https://www.w3schools.com/html/mov_bbb.mp4"],
+                // Future days ...
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 3
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 4
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 5
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 6
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 7
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 8
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 9
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 10
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 11
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 12
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 13
+                ["https://www.w3schools.com/html/mov_bbb.mp4"], // Day 14
+                ["https://www.w3schools.com/html/mov_bbb.mp4"]  // Day 15
+              ];
+
               await sendMessage(
                 from,
-                `Day ${currentStreak + 1} Challenge:\n\n${todaysWorkout}\n\nReply DONE after completing.`
+                `Day ${currentStreak + 1} Challenge:\n\n${todaysWorkout}\n\nReply DONE after completing.`,
+                VIDEOS[currentStreak]
               );
             }
           } else if (userMessage === "done") {
